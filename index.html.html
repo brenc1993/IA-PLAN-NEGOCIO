@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agency OS — Final Build</title>
+    <title>Agency Strategic OS — Business Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -38,13 +38,14 @@
         #result { display: none; margin-top: 40px; padding: 40px; background: white; color: #111; border-radius: 8px; }
         .loader { display: none; text-align: center; color: var(--accent); margin: 20px 0; font-weight: bold; }
         .section-item { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        @media (max-width: 600px) { .grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Agency OS<span>.</span></h1>
-    <p style="color: var(--text2); margin-bottom: 30px;">Tu consultora estratégica personal.</p>
+    <p style="color: var(--text2); margin-bottom: 30px;">Planificación estratégica completa para tu agencia de marketing.</p>
 
     <div id="errorDisplay" class="error-box"></div>
 
@@ -52,10 +53,10 @@
         <label>Google API Key</label>
         <input type="password" id="apiKey" placeholder="AIzaSy...">
 
-        <label>Descripción del Negocio / Servicios</label>
-        <textarea id="desc" rows="6" placeholder="Cuéntale a la IA sobre tu proyecto de agencia o servicios..."></textarea>
+        <label>Descripción del Negocio / Visión</label>
+        <textarea id="desc" rows="6" placeholder="¿Qué quieres lograr? Cuantos más detalles des sobre tus servicios y clientes, mejor será el plan."></textarea>
 
-        <label>Etapa Actual</label>
+        <label>¿En qué etapa estás?</label>
         <div class="stage-group" id="stageGroup">
             <button class="stage-btn active" onclick="setStage(this, 'idea')">Idea</button>
             <button class="stage-btn" onclick="setStage(this, 'validado')">Validado</button>
@@ -66,41 +67,49 @@
 
         <div class="grid">
             <div>
-                <label>Objetivo</label>
+                <label>Objetivo Principal</label>
                 <select id="goal">
                     <option value="validar idea">Validar idea</option>
-                    <option value="conseguir clientes">Conseguir clientes</option>
-                    <option value="definir precios">Precios y monetización</option>
-                    <option value="escalar">Escalar facturación</option>
-                    <option value="marca">Construir marca sólida</option>
+                    <option value="conseguir primeros clientes">Conseguir primeros clientes</option>
+                    <option value="definir precios y monetizar">Definir precios y monetizar</option>
+                    <option value="escalar y crecer">Escalar y crecer</option>
+                    <option value="diferenciarme de la competencia">Diferenciarme de la competencia</option>
+                    <option value="construir una marca sólida">Construir marca sólida</option>
                 </select>
             </div>
             <div>
-                <label>Presupuesto</label>
+                <label>Presupuesto Mensual</label>
                 <select id="budget">
-                    <option value="orgánico">$0 (Orgánico)</option>
-                    <option value="bajo">< 500 USD</option>
-                    <option value="medio">500 - 2000 USD</option>
-                    <option value="alto">> 2000 USD</option>
+                    <option value="orgánico (0 USD)">$0 (Orgánico)</option>
+                    <option value="bajo (menos de 500 USD)">Bajo (< 500 USD)</option>
+                    <option value="medio (500 - 2000 USD)">Medio (500 - 2000 USD)</option>
+                    <option value="alto (más de 2000 USD)">Alto (> 2000 USD)</option>
                 </select>
             </div>
         </div>
 
         <div class="grid">
-            <input type="text" id="competition" placeholder="Competencia (opcional)">
-            <input type="text" id="obstacle" placeholder="Mayor obstáculo (opcional)">
+            <div>
+                <label>Competencia (Opcional)</label>
+                <input type="text" id="competition" placeholder="¿Contra quién compites?">
+            </div>
+            <div>
+                <label>Mayor Obstáculo (Opcional)</label>
+                <input type="text" id="obstacle" placeholder="¿Qué te detiene hoy?">
+            </div>
         </div>
     </div>
 
-    <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR ESTRATEGIA →</button>
-    <div class="loader" id="loader">Probando conexión con Gemini...</div>
-    <button id="pdfBtn" onclick="downloadPDF()">↓ DESCARGAR PDF</button>
+    <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR PLAN MAESTRO →</button>
+    
+    <div class="loader" id="loader">Conectando con las mentes expertas...</div>
 
     <div id="result">
         <div id="pdfContent">
-            <h1 id="resumenTitulo" style="color: black; border-bottom: 4px solid #e8c97a; padding-bottom: 10px;"></h1>
+            <h1 id="resumenTitulo" style="color: black; border-bottom: 4px solid #e8c97a; padding-bottom: 10px; margin-bottom: 20px;"></h1>
             <div id="sectionsContainer"></div>
         </div>
+        <button id="pdfBtn" onclick="downloadPDF()">↓ DESCARGAR ESTRATEGIA EN PDF</button>
     </div>
 </div>
 
@@ -112,58 +121,65 @@
         currentStage = val;
     }
 
-    async function tryModel(key, prompt, modelName) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { response_mime_type: "application/json" }
-            })
-        });
-        return response;
-    }
-
     async function generatePlan() {
         const key = document.getElementById('apiKey').value.trim();
         const desc = document.getElementById('desc').value.trim();
         const errorDisplay = document.getElementById('errorDisplay');
         const loader = document.getElementById('loader');
-        
-        if (!key || !desc) { alert("Completa los datos"); return; }
+        const genBtn = document.getElementById('genBtn');
+
+        if (!key || !desc) { alert("API Key y Descripción son obligatorias."); return; }
 
         errorDisplay.style.display = 'none';
         loader.style.display = 'block';
+        genBtn.disabled = true;
 
-        const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. 
-        Usa frameworks de Hormozi, Sinek y Godin. Responde solo JSON: {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "HTML"}]}`;
+        const prompt = `Actúa como un comité de consultores (Alex Hormozi, Simon Sinek, Peter Drucker, Seth Godin). 
+        Analiza este negocio: "${desc}". 
+        Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. Presupuesto: ${document.getElementById('budget').value}.
+        Competencia: ${document.getElementById('competition').value || 'No definida'}. 
+        Obstáculo: ${document.getElementById('obstacle').value || 'No definido'}.
 
-        const models = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro'];
-        let success = false;
+        Responde ÚNICAMENTE con un JSON puro con esta estructura:
+        {
+          "resumen": "Título del Plan",
+          "bloques": [
+            {"autor": "Simon Sinek", "tema": "El Porqué (Golden Circle)", "contenido": "HTML con <p>, <ul>, <strong>"},
+            {"autor": "Alex Hormozi", "tema": "La Oferta Grand Slam", "contenido": "HTML"},
+            {"autor": "Seth Godin", "tema": "Marketing de Nicho", "contenido": "HTML"},
+            {"autor": "Peter Drucker", "tema": "Métricas y Gestión", "contenido": "HTML"},
+            {"autor": "Hoja de Ruta", "tema": "Plan de Acción 30 días", "contenido": "HTML"}
+          ]
+        }`;
 
-        for (const model of models) {
-            try {
-                loader.innerText = `Intentando con modelo: ${model}...`;
-                const response = await tryModel(key, prompt, model);
-                const data = await response.json();
+        // URL Con Proxy para evitar bloqueos
+        const proxyUrl = "https://corsproxy.io/?";
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
-                if (data.error) continue; // Si falla, salta al siguiente modelo del array
+        try {
+            const response = await fetch(proxyUrl + encodeURIComponent(targetUrl), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { response_mime_type: "application/json" }
+                })
+            });
 
-                const rawText = data.candidates[0].content.parts[0].text;
-                const plan = JSON.parse(rawText);
-                renderPlan(plan);
-                success = true;
-                break; 
-            } catch (e) {
-                continue;
-            }
-        }
+            const data = await response.json();
 
-        loader.style.display = 'none';
-        if (!success) {
-            errorDisplay.innerText = "Error: No se pudo conectar con ningún modelo de Gemini. Verifica que tu API Key sea de Google AI Studio y esté activa.";
+            if (data.error) throw new Error(data.error.message);
+
+            const rawText = data.candidates[0].content.parts[0].text;
+            const plan = JSON.parse(rawText);
+            
+            renderPlan(plan);
+        } catch (e) {
+            errorDisplay.innerText = "Error: " + e.message;
             errorDisplay.style.display = 'block';
+        } finally {
+            loader.style.display = 'none';
+            genBtn.disabled = false;
         }
     }
 
@@ -171,19 +187,21 @@
         document.getElementById('result').style.display = 'block';
         document.getElementById('pdfBtn').style.display = 'block';
         document.getElementById('resumenTitulo').innerText = plan.resumen;
+        
         const container = document.getElementById('sectionsContainer');
         container.innerHTML = plan.bloques.map(b => `
             <div class="section-item">
-                <small style="color: #666; font-weight: bold;">${b.autor}</small>
-                <h3 style="margin: 5px 0;">${b.tema}</h3>
-                <div>${b.contenido}</div>
+                <div style="font-size: 12px; font-weight: bold; color: #666; text-transform: uppercase;">${b.autor}</div>
+                <h3 style="margin: 5px 0 10px 0; font-size: 18px;">${b.tema}</h3>
+                <div style="font-size: 14px; color: #333;">${b.contenido}</div>
             </div>
         `).join('');
         document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
     }
 
     function downloadPDF() {
-        html2pdf().from(document.getElementById('pdfContent')).save('Estrategia-Agencia.pdf');
+        const element = document.getElementById('pdfContent');
+        html2pdf().from(element).save('Plan-Estrategico-Agencia.pdf');
     }
 </script>
 </body>
