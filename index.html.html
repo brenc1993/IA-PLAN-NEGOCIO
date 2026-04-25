@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agency OS — Business Planner</title>
+    <title>Agency OS — Final Build</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -44,7 +44,7 @@
 
 <div class="container">
     <h1>Agency OS<span>.</span></h1>
-    <p style="color: var(--text2); margin-bottom: 30px;">Planificación estratégica profesional para tu agencia.</p>
+    <p style="color: var(--text2); margin-bottom: 30px;">Tu consultora estratégica personal.</p>
 
     <div id="errorDisplay" class="error-box"></div>
 
@@ -52,8 +52,8 @@
         <label>Google API Key</label>
         <input type="password" id="apiKey" placeholder="AIzaSy...">
 
-        <label>Descripción del Negocio</label>
-        <textarea id="desc" rows="6" placeholder="Describe tu idea, servicios y visión..."></textarea>
+        <label>Descripción del Negocio / Servicios</label>
+        <textarea id="desc" rows="6" placeholder="Cuéntale a la IA sobre tu proyecto de agencia o servicios..."></textarea>
 
         <label>Etapa Actual</label>
         <div class="stage-group" id="stageGroup">
@@ -66,17 +66,17 @@
 
         <div class="grid">
             <div>
-                <label>Objetivo Principal</label>
+                <label>Objetivo</label>
                 <select id="goal">
                     <option value="validar idea">Validar idea</option>
                     <option value="conseguir clientes">Conseguir clientes</option>
-                    <option value="definir precios">Definir precios/monetización</option>
+                    <option value="definir precios">Precios y monetización</option>
                     <option value="escalar">Escalar facturación</option>
-                    <option value="marca">Marca Personal/Agencia</option>
+                    <option value="marca">Construir marca sólida</option>
                 </select>
             </div>
             <div>
-                <label>Presupuesto Mensual</label>
+                <label>Presupuesto</label>
                 <select id="budget">
                     <option value="orgánico">$0 (Orgánico)</option>
                     <option value="bajo">< 500 USD</option>
@@ -93,7 +93,7 @@
     </div>
 
     <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR ESTRATEGIA →</button>
-    <div class="loader" id="loader">Analizando con frameworks de élite...</div>
+    <div class="loader" id="loader">Probando conexión con Gemini...</div>
     <button id="pdfBtn" onclick="downloadPDF()">↓ DESCARGAR PDF</button>
 
     <div id="result">
@@ -112,7 +112,7 @@
         currentStage = val;
     }
 
-    async function callGemini(key, prompt, modelName) {
+    async function tryModel(key, prompt, modelName) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
         const response = await fetch(url, {
             method: 'POST',
@@ -131,37 +131,39 @@
         const errorDisplay = document.getElementById('errorDisplay');
         const loader = document.getElementById('loader');
         
-        if (!key || !desc) { alert("Faltan datos"); return; }
+        if (!key || !desc) { alert("Completa los datos"); return; }
 
         errorDisplay.style.display = 'none';
         loader.style.display = 'block';
 
-        const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. Presupuesto: ${document.getElementById('budget').value}.
-        Usa los frameworks de Hormozi (oferta), Sinek (por qué), Drucker (métricas) y Godin (nicho).
-        Responde ÚNICAMENTE un JSON: {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "HTML"}]}`;
+        const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. 
+        Usa frameworks de Hormozi, Sinek y Godin. Responde solo JSON: {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "HTML"}]}`;
 
-        try {
-            // Intento 1 con nombre estándar
-            let response = await callGemini(key, prompt, 'gemini-1.5-flash');
-            let data = await response.json();
+        const models = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro'];
+        let success = false;
 
-            // Si falla el modelo, intento 2 con nombre extendido
-            if (data.error && data.error.message.includes("not found")) {
-                response = await callGemini(key, prompt, 'gemini-1.5-flash-latest');
-                data = await response.json();
+        for (const model of models) {
+            try {
+                loader.innerText = `Intentando con modelo: ${model}...`;
+                const response = await tryModel(key, prompt, model);
+                const data = await response.json();
+
+                if (data.error) continue; // Si falla, salta al siguiente modelo del array
+
+                const rawText = data.candidates[0].content.parts[0].text;
+                const plan = JSON.parse(rawText);
+                renderPlan(plan);
+                success = true;
+                break; 
+            } catch (e) {
+                continue;
             }
+        }
 
-            if (data.error) throw new Error(data.error.message);
-
-            const rawText = data.candidates[0].content.parts[0].text;
-            const plan = JSON.parse(rawText);
-            
-            renderPlan(plan);
-        } catch (e) {
-            errorDisplay.innerText = "Error: " + e.message;
+        loader.style.display = 'none';
+        if (!success) {
+            errorDisplay.innerText = "Error: No se pudo conectar con ningún modelo de Gemini. Verifica que tu API Key sea de Google AI Studio y esté activa.";
             errorDisplay.style.display = 'block';
-        } finally {
-            loader.style.display = 'none';
         }
     }
 
@@ -181,8 +183,7 @@
     }
 
     function downloadPDF() {
-        const element = document.getElementById('pdfContent');
-        html2pdf().from(element).save('Estrategia-Agencia.pdf');
+        html2pdf().from(document.getElementById('pdfContent')).save('Estrategia-Agencia.pdf');
     }
 </script>
 </body>
