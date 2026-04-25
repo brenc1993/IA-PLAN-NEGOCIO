@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agency OS — Business Planner</title>
+    <title>Agency OS — Estrategia Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -37,13 +37,14 @@
         .error-box { background: rgba(255, 107, 107, 0.1); color: #ff6b6b; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; font-size: 14px; border: 1px solid rgba(255,107,107,0.2); }
         #result { display: none; margin-top: 40px; padding: 40px; background: white; color: #111; border-radius: 8px; }
         .loader { display: none; text-align: center; color: var(--accent); margin: 20px 0; font-weight: bold; }
+        .section-item { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>Agency OS<span>.</span></h1>
-    <p style="color: var(--text2); margin-bottom: 30px;">Estrategia de negocios impulsada por Gemini.</p>
+    <p style="color: var(--text2); margin-bottom: 30px;">Tu consultora estratégica personal powered by Gemini.</p>
 
     <div id="errorDisplay" class="error-box"></div>
 
@@ -52,9 +53,9 @@
         <input type="password" id="apiKey" placeholder="AIzaSy...">
 
         <label>Descripción del Negocio</label>
-        <textarea id="desc" rows="6" placeholder="Describe tu proyecto..."></textarea>
+        <textarea id="desc" rows="6" placeholder="Describe tu idea o situación actual de CM/Agencia..."></textarea>
 
-        <label>¿En qué etapa estás?</label>
+        <label>Etapa Actual</label>
         <div class="stage-group" id="stageGroup">
             <button class="stage-btn active" onclick="setStage(this, 'idea')">Idea</button>
             <button class="stage-btn" onclick="setStage(this, 'validado')">Validado</button>
@@ -64,26 +65,40 @@
         </div>
 
         <div class="grid">
-            <select id="goal">
-                <option value="validar idea">Validar idea</option>
-                <option value="conseguir clientes">Conseguir clientes</option>
-                <option value="escalar">Escalar facturación</option>
-            </select>
-            <select id="budget">
-                <option value="organico">$0 (Orgánico)</option>
-                <option value="bajo">< 500 USD</option>
-                <option value="alto">> 500 USD</option>
-            </select>
+            <div>
+                <label>Objetivo</label>
+                <select id="goal">
+                    <option value="validar idea">Validar idea</option>
+                    <option value="conseguir clientes">Conseguir clientes</option>
+                    <option value="definir precios">Definir precios/monetización</option>
+                    <option value="escalar">Escalar facturación</option>
+                    <option value="marca">Marca Personal/Agencia</option>
+                </select>
+            </div>
+            <div>
+                <label>Presupuesto</label>
+                <select id="budget">
+                    <option value="orgánico">$0 (Orgánico)</option>
+                    <option value="bajo">< 500 USD</option>
+                    <option value="medio">500 - 2000 USD</option>
+                    <option value="alto">> 2000 USD</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid">
+            <input type="text" id="competition" placeholder="Competencia (opcional)">
+            <input type="text" id="obstacle" placeholder="Mayor obstáculo (opcional)">
         </div>
     </div>
 
-    <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR PLAN →</button>
-    <div class="loader" id="loader">Generando...</div>
-    <button id="pdfBtn" onclick="downloadPDF()">Descargar PDF</button>
+    <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR ESTRATEGIA →</button>
+    <div class="loader" id="loader">Gemini está analizando los frameworks...</div>
+    <button id="pdfBtn" onclick="downloadPDF()">↓ DESCARGAR PDF</button>
 
     <div id="result">
         <div id="pdfContent">
-            <h1 id="resumenTitulo"></h1>
+            <h1 id="resumenTitulo" style="color: black; border-bottom: 4px solid #e8c97a; padding-bottom: 10px;"></h1>
             <div id="sectionsContainer"></div>
         </div>
     </div>
@@ -108,11 +123,13 @@
         errorDisplay.style.display = 'none';
         loader.style.display = 'block';
 
-        // CAMBIO CLAVE: Usando v1 en vez de v1beta y el nombre de modelo estable
-        const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
+        // URL definitiva compatible con Gemini 1.5 Flash
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 
-        const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. 
-        Responde SOLO con un JSON: {"resumen": "titulo", "bloques": [{"autor": "Sinek", "tema": "Por que", "contenido": "texto"}]}`;
+        const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. Presupuesto: ${document.getElementById('budget').value}.
+        Usa los frameworks de Hormozi (oferta), Sinek (por qué), Drucker (métricas) y Godin (nicho).
+        IMPORTANTE: Responde ÚNICAMENTE un JSON con este formato: 
+        {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "contenido HTML corto"}]}`;
 
         try {
             const response = await fetch(url, {
@@ -126,13 +143,15 @@
             const data = await response.json();
             if (data.error) throw new Error(data.error.message);
 
-            // En v1 la respuesta a veces viene sin el JSON forzado, así que lo extraemos
-            const rawText = data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
+            // Limpieza de respuesta para evitar errores de parseo
+            let rawText = data.candidates[0].content.parts[0].text;
+            rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            
             const plan = JSON.parse(rawText);
             
             renderPlan(plan);
         } catch (e) {
-            errorDisplay.innerText = "Error de API: " + e.message;
+            errorDisplay.innerText = "Error: " + e.message;
             errorDisplay.style.display = 'block';
         } finally {
             loader.style.display = 'none';
@@ -144,11 +163,19 @@
         document.getElementById('pdfBtn').style.display = 'block';
         document.getElementById('resumenTitulo').innerText = plan.resumen;
         const container = document.getElementById('sectionsContainer');
-        container.innerHTML = plan.bloques.map(b => `<h3>${b.autor} - ${b.tema}</h3><p>${b.contenido}</p>`).join('');
+        container.innerHTML = plan.bloques.map(b => `
+            <div class="section-item">
+                <small style="color: #666; font-weight: bold;">${b.autor}</small>
+                <h3 style="margin: 5px 0;">${b.tema}</h3>
+                <div>${b.contenido}</div>
+            </div>
+        `).join('');
+        document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
     }
 
     function downloadPDF() {
-        html2pdf().from(document.getElementById('pdfContent')).save('plan.pdf');
+        const element = document.getElementById('pdfContent');
+        html2pdf().from(element).save('Estrategia-Agencia.pdf');
     }
 </script>
 </body>
