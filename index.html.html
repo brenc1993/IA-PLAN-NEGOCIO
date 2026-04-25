@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agency OS — Estrategia Pro</title>
+    <title>Agency OS — Business Planner</title>
     <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
@@ -44,7 +44,7 @@
 
 <div class="container">
     <h1>Agency OS<span>.</span></h1>
-    <p style="color: var(--text2); margin-bottom: 30px;">Tu consultora estratégica personal powered by Gemini.</p>
+    <p style="color: var(--text2); margin-bottom: 30px;">Planificación estratégica profesional para tu agencia.</p>
 
     <div id="errorDisplay" class="error-box"></div>
 
@@ -53,7 +53,7 @@
         <input type="password" id="apiKey" placeholder="AIzaSy...">
 
         <label>Descripción del Negocio</label>
-        <textarea id="desc" rows="6" placeholder="Describe tu idea o situación actual de CM/Agencia..."></textarea>
+        <textarea id="desc" rows="6" placeholder="Describe tu idea, servicios y visión..."></textarea>
 
         <label>Etapa Actual</label>
         <div class="stage-group" id="stageGroup">
@@ -66,7 +66,7 @@
 
         <div class="grid">
             <div>
-                <label>Objetivo</label>
+                <label>Objetivo Principal</label>
                 <select id="goal">
                     <option value="validar idea">Validar idea</option>
                     <option value="conseguir clientes">Conseguir clientes</option>
@@ -76,7 +76,7 @@
                 </select>
             </div>
             <div>
-                <label>Presupuesto</label>
+                <label>Presupuesto Mensual</label>
                 <select id="budget">
                     <option value="orgánico">$0 (Orgánico)</option>
                     <option value="bajo">< 500 USD</option>
@@ -93,7 +93,7 @@
     </div>
 
     <button class="btn-main" id="genBtn" onclick="generatePlan()">GENERAR ESTRATEGIA →</button>
-    <div class="loader" id="loader">Gemini está analizando los frameworks...</div>
+    <div class="loader" id="loader">Analizando con frameworks de élite...</div>
     <button id="pdfBtn" onclick="downloadPDF()">↓ DESCARGAR PDF</button>
 
     <div id="result">
@@ -112,6 +112,19 @@
         currentStage = val;
     }
 
+    async function callGemini(key, prompt, modelName) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: { response_mime_type: "application/json" }
+            })
+        });
+        return response;
+    }
+
     async function generatePlan() {
         const key = document.getElementById('apiKey').value.trim();
         const desc = document.getElementById('desc').value.trim();
@@ -123,30 +136,24 @@
         errorDisplay.style.display = 'none';
         loader.style.display = 'block';
 
-        // URL definitiva compatible con Gemini 1.5 Flash
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
-
         const prompt = `Analiza este negocio: "${desc}". Etapa: ${currentStage}. Objetivo: ${document.getElementById('goal').value}. Presupuesto: ${document.getElementById('budget').value}.
         Usa los frameworks de Hormozi (oferta), Sinek (por qué), Drucker (métricas) y Godin (nicho).
-        IMPORTANTE: Responde ÚNICAMENTE un JSON con este formato: 
-        {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "contenido HTML corto"}]}`;
+        Responde ÚNICAMENTE un JSON: {"resumen": "titulo", "bloques": [{"autor": "nombre", "tema": "titulo", "contenido": "HTML"}]}`;
 
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
-                })
-            });
+            // Intento 1 con nombre estándar
+            let response = await callGemini(key, prompt, 'gemini-1.5-flash');
+            let data = await response.json();
 
-            const data = await response.json();
+            // Si falla el modelo, intento 2 con nombre extendido
+            if (data.error && data.error.message.includes("not found")) {
+                response = await callGemini(key, prompt, 'gemini-1.5-flash-latest');
+                data = await response.json();
+            }
+
             if (data.error) throw new Error(data.error.message);
 
-            // Limpieza de respuesta para evitar errores de parseo
-            let rawText = data.candidates[0].content.parts[0].text;
-            rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-            
+            const rawText = data.candidates[0].content.parts[0].text;
             const plan = JSON.parse(rawText);
             
             renderPlan(plan);
